@@ -1,0 +1,16 @@
+{
+  "name": "upload-lambda",
+  "version": "1.0.0",
+  "description": "Lambda que recibe una imagen vía POST /upload y la guarda en S3",
+  "main": "index.js",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "echo \"nothing to build – zip is created by Terraform\""
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "busboy": "^1.6.0",
+    "uuid": "^14.0.0"
+  }
+}
