@@ -268,3 +268,49 @@ resource "aws_cloudwatch_log_group" "apigw_logs" {
     Name = "${var.environment}-apigw-logs"
   })
 }
+
+# 6 S3 → SQS Trigger
+
+# Política que permite a S3 enviar mensajes a la cola SQS
+resource "aws_sqs_queue_policy" "allow_s3" {
+  queue_url = aws_sqs_queue.main.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "s3.amazonaws.com" }
+      Action    = "sqs:SendMessage"
+      Resource  = aws_sqs_queue.main.arn
+      Condition = {
+        ArnEquals = {
+          "aws:SourceArn" = aws_s3_bucket.images.arn
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_s3_bucket_notification" "uploads_to_sqs" {
+  bucket = aws_s3_bucket.images.id
+
+  queue {
+    queue_arn     = aws_sqs_queue.main.arn
+    events        = ["s3:ObjectCreated:*"]
+    filter_prefix = "uploads/"
+  }
+
+  depends_on = [aws_sqs_queue_policy.allow_s3]
+}
+
+# 7 SQS → Lambda Trigger
+
+resource "aws_lambda_event_source_mapping" "sqs_to_crop" {
+  event_source_arn = aws_sqs_queue.main.arn
+  function_name    = aws_lambda_function.crop.arn
+
+  batch_size                         = 5
+  maximum_batching_window_in_seconds = 0
+  enabled                            = true
+  function_response_types            = ["ReportBatchItemFailures"]
+}
