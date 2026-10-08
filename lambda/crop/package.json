@@ -1,0 +1,15 @@
+{
+  "name": "crop-lambda",
+  "version": "1.0.0",
+  "description": "Lambda que recorta imágenes a 40x40px circulares y las guarda en S3",
+  "main": "index.js",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "echo \"nothing to build – zip is created by Terraform\""
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "sharp": "^0.33.4"
+  }
+}
