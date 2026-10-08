@@ -13,7 +13,7 @@ crash.log
 .terraform.lock.hcl
 # Terraform variables sensibles
 *.tfvars
-!envs/*.tfvars
+!terraform/envs/*/terraform.tfvars
 
 # Secretos, Credenciales y Entornos Locales (¡Muy Importante!)
 .env
