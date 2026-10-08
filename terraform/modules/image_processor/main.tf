@@ -98,3 +98,79 @@ resource "aws_sqs_queue" "main" {
     Name = "${var.environment}-queue"
   })
 }
+
+# 3 Lambda Functions
+
+# ---- Upload ZIP ----
+data "archive_file" "upload_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../lambda/upload"
+  output_path = "${path.module}/upload.zip"
+}
+
+resource "aws_lambda_function" "upload" {
+  function_name = "${var.environment}-upload-lambda"
+  role          = aws_iam_role.upload_lambda_role.arn
+
+  runtime = "nodejs20.x"
+  handler = "index.handler"
+
+  timeout     = 30
+  memory_size = 256
+
+  filename         = data.archive_file.upload_zip.output_path
+  source_code_hash = data.archive_file.upload_zip.output_base64sha256
+
+  environment {
+    variables = {
+      BUCKET        = aws_s3_bucket.images.bucket
+      UPLOAD_PREFIX = "uploads/"
+    }
+  }
+
+  vpc_config {
+    subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+    security_group_ids = [aws_security_group.upload_lambda.id]
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-upload-lambda"
+  })
+}
+
+# ---- Crop ZIP ----
+data "archive_file" "crop_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../lambda/crop"
+  output_path = "${path.module}/crop.zip"
+}
+
+resource "aws_lambda_function" "crop" {
+  function_name = "${var.environment}-crop-lambda"
+  role          = aws_iam_role.crop_lambda_role.arn
+
+  runtime = "nodejs20.x"
+  handler = "index.handler"
+
+  timeout     = 60
+  memory_size = 512
+
+  filename         = data.archive_file.crop_zip.output_path
+  source_code_hash = data.archive_file.crop_zip.output_base64sha256
+
+  environment {
+    variables = {
+      BUCKET           = aws_s3_bucket.images.bucket
+      PROCESSED_PREFIX = "processed/"
+    }
+  }
+
+  vpc_config {
+    subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+    security_group_ids = [aws_security_group.crop_lambda.id]
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-crop-lambda"
+  })
+}
