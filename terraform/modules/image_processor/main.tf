@@ -174,3 +174,68 @@ resource "aws_lambda_function" "crop" {
     Name = "${var.environment}-crop-lambda"
   })
 }
+
+# 4 API Gateway
+
+resource "aws_apigatewayv2_api" "http_api" {
+  name          = "${var.environment}-image-api"
+  protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_headers = ["*"]
+    allow_methods = ["POST"]
+    allow_origins = ["*"]
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-http-api"
+  })
+}
+
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.http_api.id
+  name        = "$default"
+  auto_deploy = true
+
+  default_route_settings {
+    throttling_rate_limit  = 10000
+    throttling_burst_limit = 5000
+  }
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.apigw_logs.arn
+
+    format = jsonencode({
+      requestId      = "$context.requestId"
+      ip             = "$context.identity.sourceIp"
+      requestTime    = "$context.requestTime"
+      httpMethod     = "$context.httpMethod"
+      routeKey       = "$context.routeKey"
+      status         = "$context.status"
+      protocol       = "$context.protocol"
+      responseLength = "$context.responseLength"
+    })
+  }
+}
+
+resource "aws_apigatewayv2_integration" "upload_proxy" {
+  api_id                 = aws_apigatewayv2_api.http_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.upload.arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "upload_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /upload"
+  target    = "integrations/${aws_apigatewayv2_integration.upload_proxy.id}"
+}
+
+# Permiso para que API Gateway invoque la Lambda de upload
+resource "aws_lambda_permission" "apigw_invoke_upload" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.upload.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
