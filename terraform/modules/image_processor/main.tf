@@ -68,3 +68,33 @@ resource "aws_s3_bucket_public_access_block" "block" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
+
+# 2 SQS (main + DLQ)
+
+resource "aws_sqs_queue" "dlq" {
+  name = "${var.environment}-images-dlq"
+
+  message_retention_seconds  = 1209600
+  visibility_timeout_seconds = 30
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-dlq"
+  })
+}
+
+resource "aws_sqs_queue" "main" {
+  name = "${var.environment}-images-queue"
+
+  visibility_timeout_seconds = 360
+  message_retention_seconds  = 86400
+  receive_wait_time_seconds  = 20
+
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.dlq.arn
+    maxReceiveCount     = 3
+  })
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-queue"
+  })
+}
