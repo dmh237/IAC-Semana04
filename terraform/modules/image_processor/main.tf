@@ -239,3 +239,32 @@ resource "aws_lambda_permission" "apigw_invoke_upload" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
+
+# 5 CloudWatch Logs
+
+resource "aws_cloudwatch_log_group" "upload_logs" {
+  name              = "/aws/lambda/${aws_lambda_function.upload.function_name}"
+  retention_in_days = 14
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-upload-logs"
+  })
+}
+
+resource "aws_cloudwatch_log_group" "crop_logs" {
+  name              = "/aws/lambda/${aws_lambda_function.crop.function_name}"
+  retention_in_days = 14
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-crop-logs"
+  })
+}
+
+resource "aws_cloudwatch_log_group" "apigw_logs" {
+  name              = "/aws/apigateway/${aws_apigatewayv2_api.http_api.name}"
+  retention_in_days = 14
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-apigw-logs"
+  })
+}
