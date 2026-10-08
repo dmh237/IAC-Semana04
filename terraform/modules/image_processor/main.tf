@@ -314,3 +314,27 @@ resource "aws_lambda_event_source_mapping" "sqs_to_crop" {
   enabled                            = true
   function_response_types            = ["ReportBatchItemFailures"]
 }
+
+
+# 8 SNS & CloudWatch Alarm for DLQ
+
+resource "aws_sns_topic" "dlq_alarms" {
+  name = "${var.environment}-dlq-alarms"
+}
+
+resource "aws_cloudwatch_metric_alarm" "dlq_messages_alarm" {
+  alarm_name          = "${var.environment}-dlq-messages-alarm"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alarm when DLQ has visible messages"
+  alarm_actions       = [aws_sns_topic.dlq_alarms.arn]
+
+  dimensions = {
+    QueueName = aws_sqs_queue.dlq.name
+  }
+}
